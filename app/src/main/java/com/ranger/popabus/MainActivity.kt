@@ -1312,6 +1312,13 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
                 NavigationDrawerItem(label = { Text("Acerca De") }, selected = false, onClick = { vistaAyudaActual = "ACERCA"; coroutineScope.launch { drawerState.close() } }, modifier = Modifier.padding(horizontal = 12.dp))
                 NavigationDrawerItem(label = { Text("Preguntas Frecuentes") }, selected = false, onClick = { vistaAyudaActual = "PREGUNTAS"; coroutineScope.launch { drawerState.close() } }, modifier = Modifier.padding(horizontal = 12.dp))
                 NavigationDrawerItem(label = { Text("Actividad (Historial)") }, icon = { Text("⏱️") }, selected = false, onClick = { vistaAyudaActual = "ACTIVIDAD"; coroutineScope.launch { drawerState.close() } }, modifier = Modifier.padding(horizontal = 12.dp))
+                NavigationDrawerItem(
+                    label = { Text("Historial de Búsquedas") },
+                    icon = { Text("🔍") },
+                    selected = false,
+                    onClick = { vistaAyudaActual = "HISTORIAL_BUSQUEDAS"; coroutineScope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
             }
         }
     ) {
@@ -1375,7 +1382,7 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
                     }
                 }
 
-                // 2. BUSCADOR INTELIGENTE (El de tu amigo)
+                // 2. BUSCADOR INTELIGENTE
                 if (rutaSeleccionada == null) {
                     Column(modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp).fillMaxWidth(0.92f).zIndex(2f), horizontalAlignment = Alignment.CenterHorizontally) {
                         OutlinedTextField(
@@ -1386,7 +1393,23 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
                             singleLine = true,
                             trailingIcon = {
                                 if (textoBusqueda.isNotEmpty()) {
-                                    IconButton(onClick = { textoBusqueda = ""; menuSugerenciasExpandido = false }) { Text("❌") }
+                                    IconButton(onClick = {
+                                        if (textoBusqueda.isNotBlank()) {
+                                            coroutineScope.launch {
+                                                try {
+                                                    val uid = auth.currentUser?.uid ?: "anonimo"
+                                                    com.ranger.popabus.network.RetrofitClient.apiService.crearHistorialBusqueda(
+                                                        com.ranger.popabus.network.HistorialBusquedaRespuesta(
+                                                            id_usuario = uid,
+                                                            destino_buscado = textoBusqueda,
+                                                            fecha_busqueda = System.currentTimeMillis()
+                                                        )
+                                                    )
+                                                } catch (e: Exception) { Log.e("HistorialBusq", "Error: ${e.message}") }
+                                            }
+                                        }
+                                        textoBusqueda = ""; menuSugerenciasExpandido = false
+                                    }) { Text("❌") }
                                 }
                             }
                         )
@@ -1457,27 +1480,8 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
                         modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 32.dp, start = 16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (rastreandoAbordaje) MaterialTheme.colorScheme.primary else Color.DarkGray)
                     ) { Text(if (rastreandoAbordaje) "⏹️ Detener" else "✅ Abordaje") }
-                }
-                // 3. BOTONES FLOTANTES (SOS y Abordaje)
-                if (rutaSeleccionada == null) {
-                    FloatingActionButton(
-                        onClick = { mostrarDialogoPanico = true },
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 96.dp, end = 16.dp),
-                        containerColor = Color.Red
-                    ) { Text("SOS", color = Color.White) }
 
-                    Button(
-                        onClick = {
-                            rastreandoAbordaje = !rastreandoAbordaje
-                            val intentRastreo = Intent(context, ServicioRastreoPasajero::class.java)
-                            if (rastreandoAbordaje) ContextCompat.startForegroundService(context, intentRastreo)
-                            else context.stopService(intentRastreo)
-                        },
-                        modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 32.dp, start = 16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (rastreandoAbordaje) MaterialTheme.colorScheme.primary else Color.DarkGray)
-                    ) { Text(if (rastreandoAbordaje) "⏹️ Detener" else "✅ Abordaje") }
-
-                    // ⬇️ ESTO ES LO QUE FALTABA ⬇️
+                    // Ventana del SOS
                     if (mostrarDialogoPanico) {
                         AlertDialog(
                             onDismissRequest = { mostrarDialogoPanico = false },
@@ -1493,7 +1497,7 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
 
                                                 val respuesta = com.ranger.popabus.network.RetrofitClient.apiService.crearIncidencia(
                                                     com.ranger.popabus.network.IncidenciaRespuesta(
-                                                        id_usuario = "anonimo", // O el UID si lo tienes a mano
+                                                        id_usuario = "anonimo",
                                                         descripcion = "PÁNICO PASAJERO",
                                                         estado = "urgente",
                                                         fecha_reporte = System.currentTimeMillis(),
@@ -1518,16 +1522,16 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
                             }
                         )
                     }
-                    // ⬆️ FIN DE LA VENTANA DE SOS ⬆️
                 }
 
-                // Botón de Cerrar Sesión
+                // 4. Botón de Cerrar Sesión
                 Button(
                     onClick = onCerrarSesion,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) { Text("Salir") }
-                // --- INYECCIÓN DE LAS VISTAS DE AYUDA (Se superponen al mapa) ---
+
+                // 5. INYECCIÓN DE LAS VISTAS DE AYUDA
                 if (vistaAyudaActual == "ACERCA") {
                     VistaAcercaDe(onDismiss = { vistaAyudaActual = null })
                 } else if (vistaAyudaActual == "PREGUNTAS") {
@@ -1564,9 +1568,44 @@ fun MapaPopabus(onCerrarSesion: () -> Unit) {
                         hayInternet = true,
                         onDismiss = { vistaAyudaActual = null }
                     )
-                }
-                // -----------------------------------------------------------------
+                } else if (vistaAyudaActual == "HISTORIAL_BUSQUEDAS") {
+                    var listaBusquedas by remember { mutableStateOf<List<com.ranger.popabus.network.HistorialBusquedaRespuesta>>(emptyList()) }
 
+                    LaunchedEffect(Unit) {
+                        try {
+                            val uid = auth.currentUser?.uid ?: "anonimo"
+                            val respuesta = com.ranger.popabus.network.RetrofitClient.apiService.obtenerHistorialBusquedas(uid)
+                            if (respuesta.isSuccessful) listaBusquedas = respuesta.body() ?: emptyList()
+                        } catch (e: Exception) {}
+                    }
+
+                    AlertDialog(
+                        onDismissRequest = { vistaAyudaActual = null },
+                        title = { Text("Tus últimas búsquedas") },
+                        text = {
+                            if (listaBusquedas.isEmpty()) {
+                                Text("Aún no has buscado destinos.")
+                            } else {
+                                LazyColumn {
+                                    items(listaBusquedas) { busqueda ->
+                                        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                            Column(modifier = Modifier.padding(8.dp)) {
+                                                Text("Destino: ${busqueda.destino_buscado}", style = MaterialTheme.typography.bodyLarge)
+                                                val fecha = java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(busqueda.fecha_busqueda))
+                                                Text("Fecha: $fecha", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { vistaAyudaActual = null }) {
+                                Text("Cerrar")
+                            }
+                        }
+                    )
+                }
             }
         }
     }

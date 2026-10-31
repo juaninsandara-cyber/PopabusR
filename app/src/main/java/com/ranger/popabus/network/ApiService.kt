@@ -126,7 +126,12 @@ data class ActividadRespuesta(
     val fecha_abordaje: Long,
     val metodo_registro: String = "manual"
 )
-
+data class HistorialBusquedaRespuesta(
+    val id: String = "",
+    val id_usuario: String,
+    val destino_buscado: String,
+    val fecha_busqueda: Long
+)
 
 
 
@@ -189,4 +194,10 @@ interface ApiService {
     @POST("/api/actividades")
     suspend fun crearActividad(@Body actividad: ActividadRespuesta): Response<Map<String, String>>
 
+    // Dentro de interface ApiService:
+    @POST("/api/historial-busquedas")
+    suspend fun crearHistorialBusqueda(@Body busqueda: HistorialBusquedaRespuesta): Response<Map<String, String>>
+
+    @GET("/api/historial-busquedas/{uid}")
+    suspend fun obtenerHistorialBusquedas(@Path("uid") uid: String): Response<List<HistorialBusquedaRespuesta>>
 }
