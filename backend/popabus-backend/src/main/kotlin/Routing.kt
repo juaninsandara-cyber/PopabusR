@@ -156,6 +156,13 @@ data class RutaRespuesta(
     val estado: String = "activa",
     val geometria: String = "[]"
 )
+@Serializable
+data class HistorialBusquedaRespuesta(
+    val id: String = "",
+    val id_usuario: String,
+    val destino_buscado: String,
+    val fecha_busqueda: Long
+)
 
 // --- SEED: Crear los usuarios de prueba al arrancar ---
 fun seedUsuarios() {
@@ -671,6 +678,36 @@ fun Application.configureRouting() {
                         metodo_registro = fila[Actividades.metodo_registro]
                     )
                 }.sortedByDescending { it.fecha_abordaje }
+            }
+            call.respond(lista)
+        }
+        // --- ENDPOINTS DE HISTORIAL DE BÚSQUEDAS ---
+        post("/api/historial-busquedas") {
+            val request = call.receive<HistorialBusquedaRespuesta>()
+            val nuevoId = "busq_${System.currentTimeMillis()}"
+
+            transaction {
+                HistorialBusquedas.insert {
+                    it[id] = nuevoId
+                    it[id_usuario] = request.id_usuario
+                    it[destino_buscado] = request.destino_buscado
+                    it[fecha_busqueda] = request.fecha_busqueda
+                }
+            }
+            call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
+        }
+
+        get("/api/historial-busquedas/{uid}") {
+            val uid = call.parameters["uid"] ?: ""
+            val lista = transaction {
+                HistorialBusquedas.selectAll().where { HistorialBusquedas.id_usuario eq uid }.map { fila ->
+                    HistorialBusquedaRespuesta(
+                        id = fila[HistorialBusquedas.id],
+                        id_usuario = fila[HistorialBusquedas.id_usuario],
+                        destino_buscado = fila[HistorialBusquedas.destino_buscado],
+                        fecha_busqueda = fila[HistorialBusquedas.fecha_busqueda]
+                    )
+                }.sortedByDescending { it.fecha_busqueda }
             }
             call.respond(lista)
         }

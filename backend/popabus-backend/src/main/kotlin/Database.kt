@@ -85,6 +85,14 @@ object Actividades : Table("actividades") {
 
     override val primaryKey = PrimaryKey(id)
 }
+object HistorialBusquedas : Table("historial_busquedas") {
+    val id = varchar("id", 100)
+    val id_usuario = varchar("id_usuario", 100)
+    val destino_buscado = varchar("destino_buscado", 200)
+    val fecha_busqueda = long("fecha_busqueda")
+
+    override val primaryKey = PrimaryKey(id)
+}
 // --- CONEXIÓN E INICIALIZACIÓN ---
 
 fun initDatabase() {
@@ -101,7 +109,9 @@ fun initDatabase() {
         password = dbPass
     )
 
-    SchemaUtils.create(Usuarios, Buses, Ubicaciones, Paraderos, Rutas, Incidencias, Actividades)
+    transaction {
+        SchemaUtils.create(Usuarios, Buses, Ubicaciones, Paraderos, Rutas, Incidencias, Actividades, HistorialBusquedas)
+    }
 
     println("✅ Base de datos inicializada correctamente")
 }
